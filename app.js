@@ -1,32 +1,15 @@
 import promptSync from 'prompt-sync'
-import fs from 'fs/promises'
 const prompt = promptSync()
 
-/**
- * Get all services
- * @returns A list of Objects
- */
-async function getServices() {
-    let raw = await fs.readFile('services.json')
-    let services = JSON.parse(raw)
-    return services
-}
+import * as business from './business.js'
 
-/**
- * Get all orders
- * @returns A list of JavaScript objects
- */
-async function getOrders() {
-    let raw = await fs.readFile('orders.json')
-    let orders = JSON.parse(raw)
-    return orders
-}
+
 
 /**
  * Display the laundry services in a nicely formatted table.
  */
 async function showLaundryServices() {
-    let services = await getServices()
+    let services = await business.getServices()
 
     console.log('\n')
     console.log('Service ID Service                    Unit    Price')
@@ -43,14 +26,13 @@ async function showLaundryServices() {
  * @returns A JavaScript object representing the customer or null if the customer does not exist
  */
 async function getCustomerInformation(cid) {
-    let raw = await fs.readFile('customers.json')
-    let customerList = JSON.parse(raw)
-    for (let c of customerList) {
-        if (c.customerId === cid) {
-            return c
-        }
-    }
-    return null
+    let customerInfo = await business.getCustomerInfo(cid)
+    return customerInfo
+}
+
+async function getOrders(){
+    let orders = business.getOrders()
+    return orders
 }
 
 /**
@@ -59,14 +41,8 @@ async function getCustomerInformation(cid) {
  * @returns A JavaScript object about the service or null is the service does not exist.
  */
 async function getService(sid) {
-    let raw = await fs.readFile('services.json')
-    let serviceList = JSON.parse(raw) 
-    for (let s of serviceList) {
-        if (s.serviceId == sid) {
-            return s
-        }
-    }
-    return null
+    let service = await business.getService(sid)
+    return service
 }
 
 /**
@@ -75,14 +51,8 @@ async function getService(sid) {
  * @returns The price as a Number or null if the service is not found
  */
 async function getServicePrice(sid) {
-    let raw = await fs.readFile('services.json')
-    let serviceList = JSON.parse(raw) 
-    for (let s of serviceList) {
-        if (s.serviceId == sid) {
-            return s.price
-        }
-    }
-    return null
+    let servicePrice = await business.getServicePrice(sid)
+    return servicePrice
 }
 
 /**
@@ -92,24 +62,7 @@ async function getServicePrice(sid) {
  * or the customer could not be found.
  */
 async function getCustomerOrders(cid) {
-    let result = []
-    let raw = await fs.readFile('orders.json') 
-    let orderList = JSON.parse(raw)
-    for (let ord of orderList) {
-        if (ord.customerId === cid) {
-            let total = 0
-            for (let items of ord.items) {
-                let price = await getServicePrice(items.serviceId)
-                total += price*items.quantity
-            }
-            result.push({
-                order: ord.orderId,
-                date: ord.orderDate,
-                status: ord.status,
-                total: total
-            })
-        }
-    }
+    let result = business.getCustomerOrders(cid)
     return result
 }
 
@@ -118,8 +71,7 @@ async function getCustomerOrders(cid) {
  * @param {*} orderList The list of objects to be written.
  */
 async function saveOrders(orderList) {
-    let raw = JSON.stringify(orderList, null, 4)
-    await fs.writeFile('orders.json', raw)
+    business.saveOrders(orderList)
 }
 
 /**
@@ -128,14 +80,8 @@ async function saveOrders(orderList) {
  * @returns A JavaScript object for the order or null if the order was not found.
  */
 async function getOrderDetails(oid) {
-    let raw = await fs.readFile('orders.json')
-    let orderList = JSON.parse(raw)
-    for (let ord of orderList) {
-        if (ord.orderId === oid) {
-            return ord
-        }
-    }
-    return null
+    let orderList = await business.getOrderDetails(oid)
+    return orderList
 }
 
 /**
@@ -165,23 +111,7 @@ async function getNextOrderId() {
  * @returns true if the operation is successful, false otherwise
  */
 async function updateOrderStatus(order, newStatus) {
-    let statusList = ['Received', 'Washing', 'Ready', 'Delivered']
-    let currentPos = statusList.indexOf(order.status)
-    let newPos = statusList.indexOf(newStatus)
-    if (newPos === -1 || newPos <= currentPos) {
-        return false
-    }
-    let raw = await fs.readFile('orders.json')
-    let orderList = JSON.parse(raw)
-    for (let ord of orderList) {
-        if (ord.orderId == order.orderId) {
-            ord.status = newStatus
-            break
-        }
-    }
-    let result = JSON.stringify(orderList, null, 4)
-    await fs.writeFile('orders_new.json', result)
-    return true
+    await business.updateOrderStatus()
 }
 
 /**
