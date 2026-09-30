@@ -1,29 +1,41 @@
 import fs from 'fs/promises'
 
+/**
+ * Get all orders from the orders file
+ * @returns A list of JavaScript objects
+ */
 async function loadOrders() {
-    let orders = await fs.readFile('orders.json')
-    let result =  JSON.parse(orders)
-    return result
+    let raw = await fs.readFile('orders.json')
+    let orders = JSON.parse(raw)
+    return orders
 }
 
-async function loadCustomers() {
-    let customers = await fs.readFile('customers.json')
-    let result = JSON.parse(customers)
-    return result
+/**
+ * Write the list of objects representing the orders out to the file, overwriting the existing file.
+ * @param {*} orderList The list of objects to be written.
+ */
+async function saveOrders(orderList) {
+    await fs.writeFile('orders.json', JSON.stringify(orderList, null, 4))
 }
 
+/**
+ * Get all services
+ * @returns A list of Objects
+ */
 export async function loadServices() {
-    let services = await fs.readFile('services.json')
-    let result = JSON.parse(services)
-    return result
+    let raw = await fs.readFile('services.json')
+    let services = JSON.parse(raw)
+    return services
 }
 
-export async function updateOrders(orders) {
-    await fs.writeFile('orders.json', JSON.stringify(orders, null, 4))
-}
-
-export async function getCustomer(cid) {
-    let customerList = await loadCustomers()
+/**
+ * Find a single customer
+ * @param {*} cid The customer ID
+ * @returns A JavaScript object representing the customer or null if the customer does not exist
+ */
+export async function findCustomer(cid) {
+    let raw = await fs.readFile('customers.json')
+    let customerList = JSON.parse(raw)
     for (let c of customerList) {
         if (c.customerId === cid) {
             return c
@@ -32,27 +44,12 @@ export async function getCustomer(cid) {
     return null
 }
 
-export async function updateOrder(order) {
-    const orderList = await loadOrders()
-    let found = false
-
-    for (let i = 0; i < orderList.length; i++) {
-        if (orderList[i].orderId === order.orderId) {
-            orderList[i] = order
-            found = true
-            break
-        }
-    }
-
-    if (!found) {
-        return false
-    }
-
-    await updateOrders(orderList)
-    return true
-}
-
-export async function getService(sid) {
+/**
+ * Find a single service
+ * @param {*} sid Service ID
+ * @returns A JavaScript object about the service or null if the service does not exist.
+ */
+export async function findService(sid) {
     let serviceList = await loadServices()
     for (let s of serviceList) {
         if (s.serviceId == sid) {
@@ -62,16 +59,26 @@ export async function getService(sid) {
     return null
 }
 
-export async function getServicePrice(sid) {
-    let serviceList = await loadServices()
-    for (let s of serviceList) {
-        if (s.serviceId == sid) {
-            return s.price
+/**
+ * Find a single order given the order ID
+ * @param {*} oid The order ID to be found
+ * @returns A JavaScript object for the order or null if the order was not found.
+ */
+export async function findOrder(oid) {
+    let orderList = await loadOrders()
+    for (let ord of orderList) {
+        if (ord.orderId === oid) {
+            return ord
         }
     }
     return null
 }
 
+/**
+ * Find the orders for a given customer.
+ * @param {*} cid The customer ID
+ * @returns A list of Objects representing the orders for a customer or an empty list if there are none
+ */
 export async function findOrdersByCustomer(cid) {
     let orderList = await loadOrders()
     let result = []
@@ -83,12 +90,43 @@ export async function findOrdersByCustomer(cid) {
     return result
 }
 
-export async function getOrderDetails(oid) {
-    let orderList = await loadOrders()
-    for (let ord of orderList) {
-        if (ord.orderId === oid) {
-            return ord
+/**
+ * Generate an auto-incremented order number.  This works by going through the order information
+ * in the JSON file and finding the largest number then adding 1.
+ * @returns The new order ID with the "O" prepended
+ */
+export async function getNextOrderId() {
+    let orders = await loadOrders()
+    let maxId = 0
+    for (let ord of orders) {
+        let id = Number(ord.orderId.substring(1))
+        if (id > maxId) {
+            maxId = id
         }
     }
-    return null
+    return 'O' + String(maxId + 1).padStart(3, '0')
+}
+
+/**
+ * Add a new order to the orders file.
+ * @param {*} order The order object to be added
+ */
+export async function createOrder(order) {
+    let orderList = await loadOrders()
+    orderList.push(order)
+    await saveOrders(orderList)
+}
+
+/**
+ * Replace an existing order in the orders file with the updated version.
+ * @param {*} order The updated order object
+ */
+export async function updateOrder(order) {
+    let orderList = await loadOrders()
+    for (let i = 0; i < orderList.length; i++) {
+        if (orderList[i].orderId === order.orderId) {
+            orderList[i] = order
+        }
+    }
+    await saveOrders(orderList)
 }

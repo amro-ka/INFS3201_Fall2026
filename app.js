@@ -1,9 +1,7 @@
 import promptSync from 'prompt-sync'
-const prompt = promptSync()
-
 import * as business from './business.js'
 
-
+const prompt = promptSync()
 
 /**
  * Display the laundry services in a nicely formatted table.
@@ -21,112 +19,18 @@ async function showLaundryServices() {
 }
 
 /**
- * Get information about a single customer
- * @param {*} cid The customer ID
- * @returns A JavaScript object representing the customer or null if the customer does not exist
- */
-async function getCustomerInformation(cid) {
-    let customerInfo = await business.getCustomerInfo(cid)
-    return customerInfo
-}
-
-async function getOrders(){
-    let orders = business.getOrders()
-    return orders
-}
-
-/**
- * Get details about a single service
- * @param {*} sid Service ID
- * @returns A JavaScript object about the service or null is the service does not exist.
- */
-async function getService(sid) {
-    let service = await business.getService(sid)
-    return service
-}
-
-/**
- * Get the price of an individual service item given the service ID
- * @param {*} sid The id of the service
- * @returns The price as a Number or null if the service is not found
- */
-async function getServicePrice(sid) {
-    let servicePrice = await business.getServicePrice(sid)
-    return servicePrice
-}
-
-/**
- * Get the orders for a given customer.
- * @param {*} cid The customer ID
- * @returns A list of Objects representing the orders for a customer or an empty list if there are none 
- * or the customer could not be found.
- */
-async function getCustomerOrders(cid) {
-    let result = business.getCustomerOrders(cid)
-    return result
-}
-
-/**
- * Write the list of objects representing the orders out to the file, overwriting the existing file.
- * @param {*} orderList The list of objects to be written.
- */
-async function saveOrders(orderList) {
-    business.saveOrders(orderList)
-}
-
-/**
- * Get details about a single order given the order ID
- * @param {*} oid The order ID to be found
- * @returns A JavaScript object for the order or null if the order was not found.
- */
-async function getOrderDetails(oid) {
-    let orderList = await business.getOrderDetails(oid)
-    return orderList
-}
-
-/**
- * Generate an auto-incremented order number.  This works by going through the order information
- * in the JSON file and finding the largest number then adding 1.
- * @returns The new order ID with the "O" prepended
- */
-async function getNextOrderId() {
-    let orders = await getOrders()
-    let maxId = 0
-
-    for (let ord of orders) {
-        let id = Number(ord.orderId.substring(1))
-        if (id > maxId) {
-            maxId = id
-        }
-    }
-    return 'O' + String(maxId + 1).padStart(3, '0')
-}
-
-/**
- * Attempt to update the order status to a new status level following the ordering rules. 
- * The newly updated state will be written to the file if the state change is allowed.
- * 
- * @param {*} order A JavaScript object representing the current state of the entire order
- * @param {*} newStatus The new state that we would like to switch to.
- * @returns true if the operation is successful, false otherwise
- */
-async function updateOrderStatus(order, newStatus) {
-    await business.updateOrderStatus()
-}
-
-/**
  * Display a list of orders per customer in a structure way
  * @returns nothing
  */
 async function showCustomerOrders() {
     let customerId = prompt('Enter customer ID: ')
-    let customer = await getCustomerInformation(customerId)
+    let customer = await business.getCustomer(customerId)
     if (!customer) {
-        console.log("**** customer not found")
+        console.log("customer not found")
         return
     }
     console.log(`Orders for ${customer.name}`)
-    let orders = await getCustomerOrders(customerId)
+    let orders = await business.getCustomerOrders(customerId)
     console.log('Order ID  Order Date  Status      Total')
     console.log('--------  ----------  ----------- -----')
     for (let ord of orders) {
@@ -136,25 +40,24 @@ async function showCustomerOrders() {
 
 /**
  * Interact with the customer to create a new order then save it to the storage.
- * @returns 
+ * @returns nothing
  */
 async function createNewOrder() {
     let customerId = prompt('Enter customer ID: ')
-    let customer = await getCustomerInformation(customerId)
+    let customer = await business.getCustomer(customerId)
     if (!customer) {
         console.log('**** customer not found')
         return
     }
 
     let items = []
-    let total = 0
     while (true) {
         let serviceId = prompt('Enter service ID (blank to finish): ')
         if (serviceId == '') {
             break
         }
 
-        let service = await getService(serviceId)
+        let service = await business.getService(serviceId)
         if (!service) {
             console.log('**** service not found')
             continue
@@ -165,8 +68,6 @@ async function createNewOrder() {
             serviceId: serviceId,
             quantity: quantity
         })
-
-        total += service.price * quantity
     }
 
     if (items.length == 0) {
@@ -174,43 +75,62 @@ async function createNewOrder() {
         return
     }
 
-    let orderId = await getNextOrderId()
-
-    let today = new Date()
-    let orderDate = today.toISOString().substring(0, 10)
-
-    let order = {
-        orderId: orderId,
-        customerId: customerId,
-        orderDate: orderDate,
-        status: 'Received',
-        items: items
-    }
-
-    let orders = await getOrders()
-    orders.push(order)
-    await saveOrders(orders)
-
-    console.log(`Order ${orderId} created`)
-    console.log(`Total price: ${total.toFixed(2)} QAR`)
+    let result = await business.createOrder(customerId, items)
+    console.log(`Order ${result.orderId} created`)
+    console.log(`Total price: ${result.total.toFixed(2)} QAR`)
 }
 
 /**
- * Interact with the customer to determine the current status of an order and update it with a 
+ * Interact with the customer to determine the current status of an order and update it with a
  * new status if allowed.
  */
 async function changeOrderStatus() {
     let oid = prompt('Enter order ID: ')
-    let details = await getOrderDetails(oid)
+    let details = await business.getOrder(oid)
+    if (!details) {
+        console.log('**** order not found')
+        return
+    }
     console.log(`Current status: ${details.status}`)
     let newStatus = prompt('Enter new status: ')
-    let result = await updateOrderStatus(details, newStatus)
+    let result = await business.updateOrderStatus(details, newStatus)
     if (!result) {
         console.log('New status not accepted')
     }
     else {
-        console.log('Status updated')
+        console.log('Order status updated')
     }
+}
+
+/**
+ * Ask for an order ID and display the invoice for that order.
+ */
+async function viewInvoice() {
+    let oid = prompt('Enter order ID: ')
+    let order = await business.getOrder(oid)
+    if (!order) {
+        console.log('**** order not found')
+        return
+    }
+    let invoice = await business.getInvoice(order)
+    if (!invoice) {
+        console.log('**** customer or service for this order not found')
+        return
+    }
+    let pricing = invoice.pricing
+
+    console.log(`\nOrder: ${order.orderId}        Date: ${order.orderDate}        Status: ${order.status}`)
+    console.log(`Customer: ${invoice.customerName}\n`)
+    console.log('Service                   Qty           Price Line Total')
+    console.log('------------------------- -------- ---------- ----------')
+    for (let line of pricing.lines) {
+        console.log(`${line.name.padEnd(25)} ${String(line.quantity).padEnd(8)} ${line.price.toFixed(2).padStart(10)} ${line.lineTotal.toFixed(2).padStart(10)}`)
+    }
+    console.log('')
+    console.log(`Service subtotal:${pricing.subtotal.toFixed(2).padStart(39)}`)
+    console.log(`Minimum-order adjustment:${pricing.adjustment.toFixed(2).padStart(31)}`)
+    console.log(`Delivery charge:${pricing.delivery.toFixed(2).padStart(40)}`)
+    console.log(`Final total:${pricing.total.toFixed(2).padStart(44)} QAR\n`)
 }
 
 /**
@@ -225,9 +145,10 @@ function showMenu() {
         console.log('2. View customer orders')
         console.log('3. Update order status')
         console.log('4. Create new order')
-        console.log('5. Exit\n')
+        console.log('5. View invoice')
+        console.log('6. Exit\n')
         let selection = Number(prompt('What is your choice> '))
-        if (selection >= 1 && selection <= 5) {
+        if (selection >= 1 && selection <= 6) {
             return selection
         }
         console.log("*** Invalid input.. try again! ***")
@@ -248,6 +169,9 @@ while (true) {
     }
     else if (option === 4) {
         await createNewOrder()
+    }
+    else if (option === 5) {
+        await viewInvoice()
     }
     else {
         break
