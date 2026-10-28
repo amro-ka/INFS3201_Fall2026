@@ -7,11 +7,7 @@
         "items": [
             {
                 "serviceId": "S001",
-                "quantity": 4
-            },
-            {
-                "serviceId": "S004",
-                "quantity": 2
+                "quantity": 1
             }
         ]
     },
@@ -150,5 +146,18 @@
                 "quantity": 1
             }
         ]
+    },
+    {
+        "customerId": "C001",
+        "orderDate": "2026-09-06",
+        "status": "Received",
+        "items": [
+            {
+                "serviceId": "S001",
+                "quantity": 13
+            }
+        ],
+        "total": 104,
+        "orderId": "O011"
     }
 ]

@@ -1,7 +1,9 @@
-import promptSync from 'prompt-sync'
 import * as business from './business.js'
-
+import promptSync from 'prompt-sync'
+import dotenv from 'dotenv'
 const prompt = promptSync()
+
+dotenv.config()
 
 /**
  * Display the laundry services in a nicely formatted table.
@@ -18,33 +20,33 @@ async function showLaundryServices() {
     console.log('\n')
 }
 
+
 /**
  * Display a list of orders per customer in a structure way
  * @returns nothing
  */
 async function showCustomerOrders() {
     let customerId = prompt('Enter customer ID: ')
-    let customer = await business.getCustomer(customerId)
-    if (!customer) {
-        console.log("customer not found")
+    let details = await business.getCustomerInformation(customerId)
+    if (!details) {
+        console.log("**** customer not found")
         return
     }
-    console.log(`Orders for ${customer.name}`)
-    let orders = await business.getCustomerOrders(customerId)
+    console.log(`Orders for ${details.name}`)
     console.log('Order ID  Order Date  Status      Total')
     console.log('--------  ----------  ----------- -----')
-    for (let ord of orders) {
+    for (let ord of details.orders) {
         console.log(`${ord.order.padEnd(8)}  ${ord.date.padEnd(10)}  ${ord.status.padEnd(11)} ${ord.total.toFixed(2).padStart(5)}`)
     }
 }
 
 /**
  * Interact with the customer to create a new order then save it to the storage.
- * @returns nothing
+ * @returns 
  */
 async function createNewOrder() {
     let customerId = prompt('Enter customer ID: ')
-    let customer = await business.getCustomer(customerId)
+    let customer = await business.getCustomerInformation(customerId)
     if (!customer) {
         console.log('**** customer not found')
         return
@@ -74,63 +76,57 @@ async function createNewOrder() {
         console.log('**** order must contain at least one service')
         return
     }
+    let orderDetails = await business.createNewOrder(customerId, items)
 
-    let result = await business.createOrder(customerId, items)
-    console.log(`Order ${result.orderId} created`)
-    console.log(`Total price: ${result.total.toFixed(2)} QAR`)
+    console.log(`Order ${orderDetails.orderId} created`)
+    console.log(`Total price: ${orderDetails.total.toFixed(2)} QAR`)
 }
 
 /**
- * Interact with the customer to determine the current status of an order and update it with a
+ * Interact with the customer to determine the current status of an order and update it with a 
  * new status if allowed.
  */
 async function changeOrderStatus() {
     let oid = prompt('Enter order ID: ')
-    let details = await business.getOrder(oid)
-    if (!details) {
-        console.log('**** order not found')
-        return
-    }
+    let details = await business.getOrderDetails(oid)
     console.log(`Current status: ${details.status}`)
     let newStatus = prompt('Enter new status: ')
-    let result = await business.updateOrderStatus(details, newStatus)
+    let result = await business.updateOrderStatus(details.orderId, newStatus)
     if (!result) {
         console.log('New status not accepted')
     }
     else {
-        console.log('Order status updated')
+        console.log('Status updated')
     }
 }
 
-/**
- * Ask for an order ID and display the invoice for that order.
- */
-async function viewInvoice() {
-    let oid = prompt('Enter order ID: ')
-    let order = await business.getOrder(oid)
-    if (!order) {
-        console.log('**** order not found')
-        return
-    }
-    let invoice = await business.getInvoice(order)
-    if (!invoice) {
-        console.log('**** customer or service for this order not found')
-        return
-    }
-    let pricing = invoice.pricing
+function formatMoney(amount, width=0) {
+    let fixed = amount.toFixed(2)
+    return String(fixed).padStart(width)
+}
 
-    console.log(`\nOrder: ${order.orderId}        Date: ${order.orderDate}        Status: ${order.status}`)
-    console.log(`Customer: ${invoice.customerName}\n`)
-    console.log('Service                   Qty           Price Line Total')
-    console.log('------------------------- -------- ---------- ----------')
-    for (let line of pricing.lines) {
-        console.log(`${line.name.padEnd(25)} ${String(line.quantity).padEnd(8)} ${line.price.toFixed(2).padStart(10)} ${line.lineTotal.toFixed(2).padStart(10)}`)
+async function showInvoice() {
+    let orderId = prompt('Enter order ID: ')
+    let invoice = await business.generateInvoice(orderId)
+    if (!invoice) {
+        console.log("****** not found*****")
+        return
     }
-    console.log('')
-    console.log(`Service subtotal:${pricing.subtotal.toFixed(2).padStart(39)}`)
-    console.log(`Minimum-order adjustment:${pricing.adjustment.toFixed(2).padStart(31)}`)
-    console.log(`Delivery charge:${pricing.delivery.toFixed(2).padStart(40)}`)
-    console.log(`Final total:${pricing.total.toFixed(2).padStart(44)} QAR\n`)
+    console.log(invoice)
+    console.log(`Order: ${invoice.order}     Date: ${invoice.data}      Status: ${invoice.status}`)
+    console.log(`Customer: ${invoice.customer}`)
+    console.log()
+    console.log('Service            Qty      Price      Line Total')
+    console.log('------------------ ------ -----------  ----------')
+    for (let it of invoice.serviceItems) {
+        console.log(`${it.service.padEnd(18)} ${String(it.quantity).padEnd(7)} `+ 
+        `${formatMoney(it.price,10)} ${formatMoney(it.lineTotal,11)}`)
+    }
+    console.log()
+    console.log(`        Service subtotal: ${formatMoney(invoice.subTotal,23)}`)
+    console.log(`Minimum-order adjustment: ${formatMoney(invoice.minimumAdjustment, 23)}`)
+    console.log(`         Delivery charge: ${formatMoney(invoice.delivery, 23)}`)
+    console.log(`             Final total: ${formatMoney(invoice.total, 23)} QAR`)
 }
 
 /**
@@ -145,7 +141,7 @@ function showMenu() {
         console.log('2. View customer orders')
         console.log('3. Update order status')
         console.log('4. Create new order')
-        console.log('5. View invoice')
+        console.log('5. View order details')
         console.log('6. Exit\n')
         let selection = Number(prompt('What is your choice> '))
         if (selection >= 1 && selection <= 6) {
@@ -171,7 +167,7 @@ while (true) {
         await createNewOrder()
     }
     else if (option === 5) {
-        await viewInvoice()
+        await showInvoice()
     }
     else {
         break
