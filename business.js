@@ -13,14 +13,44 @@ export async function getService(serviceId) {
     return await persistence.getService(serviceId)
 }
 
+/**
+ * Get a customer along with a summary of each of their orders.
+ * @param {*} cid The customer ID
+ * @returns The customer object with an orders list, or null if the customer does not exist
+ */
 export async function getCustomerInformation(cid) {
     let customer = await persistence.getCustomerInformation(cid)
     if (!customer) {
         return null
     }
     let orders = await persistence.getCustomerOrders(cid)
-    customer.orders = orders
+    let summaries = []
+    for (let ord of orders) {
+        summaries.push({
+            order: ord.orderId,
+            date: ord.orderDate,
+            status: ord.status,
+            total: await computeItemsTotal(ord.items)
+        })
+    }
+    customer.orders = summaries
     return customer
+}
+
+/**
+ * Add up the price of each service multiplied by its quantity.
+ * @param {*} items The list of {serviceId, quantity} items in an order
+ * @returns The total as a Number
+ */
+async function computeItemsTotal(items) {
+    let total = 0
+    for (let it of items) {
+        let service = await getService(it.serviceId)
+        if (service) {
+            total += service.price * it.quantity
+        }
+    }
+    return total
 }
 
 export async function getOrderDetails(oid) {
@@ -39,6 +69,9 @@ export async function getOrderDetails(oid) {
 export async function updateOrderStatus(oid, newStatus) {
     let statusList = ['Received', 'Washing', 'Ready', 'Delivered']
     let order = await persistence.getOrderDetails(oid)
+    if (!order) {
+        return false
+    }
     let currentPos = statusList.indexOf(order.status)
     let newPos = statusList.indexOf(newStatus)
     if (newPos === -1 || newPos <= currentPos) {

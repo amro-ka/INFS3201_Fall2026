@@ -1,67 +1,30 @@
-import fs from 'fs/promises'
+import { MongoClient } from 'mongodb'
+
+const DATABASE_NAME = 'infs3201_fall2026'
+
+// Cached MongoDB connection, created on first use and reused for every request.
+let client = null
+
+/**
+ * Get the application database, connecting to MongoDB the first time it is needed.
+ * The connection string is read from the MONGODB_URI value in the .env file.
+ * @returns The MongoDB Db object for the application database
+ */
+async function getDatabase() {
+    if (!client) {
+        client = new MongoClient(process.env.MONGODB_URI)
+        await client.connect()
+    }
+    return client.db(DATABASE_NAME)
+}
 
 /**
  * Get all services
  * @returns A list of Objects
  */
 export async function getServices() {
-    let raw = await fs.readFile('services.json')
-    let services = JSON.parse(raw)
-    return services
-}
-
-/**
- * Get all orders
- * @returns A list of JavaScript objects
- */
-async function getOrders() {
-    let raw = await fs.readFile('orders.json')
-    let orders = JSON.parse(raw)
-    return orders
-}
-
-/**
- * Get information about a single customer
- * @param {*} cid The customer ID
- * @returns A JavaScript object representing the customer or null if the customer does not exist
- */
-export async function getCustomerInformation(cid) {
-    let raw = await fs.readFile('customers.json')
-    let customerList = JSON.parse(raw)
-    for (let c of customerList) {
-        if (c.customerId === cid) {
-            return c
-        }
-    }
-    return null
-}
-
-/**
- * Get the orders for a given customer.
- * @param {*} cid The customer ID
- * @returns A list of Objects representing the orders for a customer or an empty list if there are none 
- * or the customer could not be found.
- */
-export async function getCustomerOrders(cid) {
-    let result = []
-    let raw = await fs.readFile('orders.json') 
-    let orderList = JSON.parse(raw)
-    for (let ord of orderList) {
-        if (ord.customerId === cid) {
-            let total = 0
-            for (let items of ord.items) {
-                let price = await getServicePrice(items.serviceId)
-                total += price*items.quantity
-            }
-            result.push({
-                order: ord.orderId,
-                date: ord.orderDate,
-                status: ord.status,
-                total: total
-            })
-        }
-    }
-    return result
+    let db = await getDatabase()
+    return await db.collection('services').find().toArray()
 }
 
 /**
@@ -70,41 +33,29 @@ export async function getCustomerOrders(cid) {
  * @returns A JavaScript object about the service or null is the service does not exist.
  */
 export async function getService(sid) {
-    let raw = await fs.readFile('services.json')
-    let serviceList = JSON.parse(raw) 
-    for (let s of serviceList) {
-        if (s.serviceId == sid) {
-            return s
-        }
-    }
-    return null
+    let db = await getDatabase()
+    return await db.collection('services').findOne({ serviceId: sid })
 }
 
 /**
- * Get the price of an individual service item given the service ID
- * @param {*} sid The id of the service
- * @returns The price as a Number or null if the service is not found
+ * Get information about a single customer
+ * @param {*} cid The customer ID
+ * @returns A JavaScript object representing the customer or null if the customer does not exist
  */
-async function getServicePrice(sid) {
-    let raw = await fs.readFile('services.json')
-    let serviceList = JSON.parse(raw) 
-    for (let s of serviceList) {
-        if (s.serviceId == sid) {
-            return s.price
-        }
-    }
-    return null
+export async function getCustomerInformation(cid) {
+    let db = await getDatabase()
+    return await db.collection('customers').findOne({ customerId: cid })
 }
 
-
-
 /**
- * Write the list of objects representing the orders out to the file, overwriting the existing file.
- * @param {*} orderList The list of objects to be written.
+ * Get the orders for a given customer.
+ * @param {*} cid The customer ID
+ * @returns A list of order objects for the customer or an empty list if there are none
+ * or the customer could not be found.
  */
-async function saveOrders(orderList) {
-    let raw = JSON.stringify(orderList, null, 4)
-    await fs.writeFile('orders.json', raw)
+export async function getCustomerOrders(cid) {
+    let db = await getDatabase()
+    return await db.collection('orders').find({ customerId: cid }).sort({ orderId: 1 }).toArray()
 }
 
 /**
@@ -113,62 +64,48 @@ async function saveOrders(orderList) {
  * @returns A JavaScript object for the order or null if the order was not found.
  */
 export async function getOrderDetails(oid) {
-    let raw = await fs.readFile('orders.json')
-    let orderList = JSON.parse(raw)
-    for (let ord of orderList) {
-        if (ord.orderId === oid) {
-            return ord
-        }
-    }
-    return null
+    let db = await getDatabase()
+    return await db.collection('orders').findOne({ orderId: oid })
 }
 
 /**
- * Generate an auto-incremented order number.  This works by going through the order information
- * in the JSON file and finding the largest number then adding 1.
+ * Generate an auto-incremented order number by asking MongoDB for the order with the
+ * largest order ID and adding 1.  Order IDs are zero padded so they sort correctly as strings.
  * @returns The new order ID with the "O" prepended
  */
 async function getNextOrderId() {
-    let orders = await getOrders()
+    let db = await getDatabase()
+    let last = await db.collection('orders').findOne({}, { sort: { orderId: -1 } })
     let maxId = 0
-
-    for (let ord of orders) {
-        let id = Number(ord.orderId.substring(1))
-        if (id > maxId) {
-            maxId = id
-        }
+    if (last) {
+        maxId = Number(last.orderId.substring(1))
     }
     return 'O' + String(maxId + 1).padStart(3, '0')
 }
 
 /**
- * Attempt to update the order status to a new status level following the ordering rules. 
- * The newly updated state will be written to the file if the state change is allowed.
- * 
- * @param {*} order A JavaScript object representing the current state of the entire order
- * @param {*} newStatus The new state that we would like to switch to.
- * @returns true if the operation is successful, false otherwise
+ * Change the status of a single order.
+ * @param {*} orderId The order to update
+ * @param {*} newStatus The new status value
+ * @returns true if an order was updated, false if the order was not found
  */
 export async function updateOrderStatus(orderId, newStatus) {
-    let raw = await fs.readFile('orders.json')
-    let orderList = JSON.parse(raw)
-    for (let ord of orderList) {
-        if (ord.orderId == orderId) {
-            ord.status = newStatus
-            break
-        }
-    }
-    let result = JSON.stringify(orderList, null, 4)
-    await fs.writeFile('orders.json', result)
-    return true
+    let db = await getDatabase()
+    let result = await db.collection('orders').updateOne(
+        { orderId: orderId },
+        { $set: { status: newStatus } }
+    )
+    return result.matchedCount === 1
 }
 
+/**
+ * Insert a new order, assigning it the next available order ID.
+ * @param {*} details The order object without an order ID
+ * @returns The order object including its new order ID
+ */
 export async function createOrder(details) {
-    let orderList = await getOrders()
-    let newId = await getNextOrderId()
-    details.orderId = newId
-    orderList.push(details)
-    await saveOrders(orderList)
+    let db = await getDatabase()
+    details.orderId = await getNextOrderId()
+    await db.collection('orders').insertOne(details)
     return details
 }
-
