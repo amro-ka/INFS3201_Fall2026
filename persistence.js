@@ -48,6 +48,25 @@ export async function getCustomerInformation(cid) {
 }
 
 /**
+ * Get information about several customers at once.
+ * @param {*} cidList A list of customer IDs
+ * @returns A list of customer objects for the IDs that exist
+ */
+export async function getCustomersByIds(cidList) {
+    let db = await getDatabase()
+    return await db.collection('customers').find({ customerId: { $in: cidList } }).toArray()
+}
+
+/**
+ * Get all orders in the system sorted by order ID.
+ * @returns A list of order objects
+ */
+export async function getAllOrders() {
+    let db = await getDatabase()
+    return await db.collection('orders').find().sort({ orderId: 1 }).toArray()
+}
+
+/**
  * Get the orders for a given customer.
  * @param {*} cid The customer ID
  * @returns A list of order objects for the customer or an empty list if there are none

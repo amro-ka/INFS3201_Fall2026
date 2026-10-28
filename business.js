@@ -57,6 +57,36 @@ export async function getOrderDetails(oid) {
     return await persistence.getOrderDetails(oid)
 }
 
+/**
+ * Get every order in the system along with the name of the customer who placed it.
+ * @returns A list of {orderId, customer, orderDate, status} objects
+ */
+export async function getAllOrders() {
+    let orders = await persistence.getAllOrders()
+    let customerIds = []
+    for (let ord of orders) {
+        if (!customerIds.includes(ord.customerId)) {
+            customerIds.push(ord.customerId)
+        }
+    }
+    let customers = await persistence.getCustomersByIds(customerIds)
+    let names = {}
+    for (let c of customers) {
+        names[c.customerId] = c.name
+    }
+
+    let result = []
+    for (let ord of orders) {
+        result.push({
+            orderId: ord.orderId,
+            customer: names[ord.customerId] || 'Unknown customer',
+            orderDate: ord.orderDate,
+            status: ord.status
+        })
+    }
+    return result
+}
+
 
 /**
  * Attempt to update the order status to a new status level following the ordering rules. 

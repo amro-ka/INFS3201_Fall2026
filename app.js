@@ -54,6 +54,14 @@ app.get('/find-results', async (req, res) => {
 })
 
 /**
+ * Table of all orders with a link to update each order's status.
+ */
+app.get('/orders', async (req, res) => {
+    let orders = await business.getAllOrders()
+    res.render('orders', { orders: orders })
+})
+
+/**
  * Any URL that does not match a route.
  */
 app.use((req, res) => {

@@ -10,3 +10,19 @@ th, td {
 .error {
     color: darkred;
 }
+
+.status-Received {
+    background-color: #f4b6b6;
+}
+
+.status-Washing {
+    background-color: #add8e6;
+}
+
+.status-Ready {
+    background-color: #f5e68c;
+}
+
+.status-Delivered {
+    background-color: #90ee90;
+}
