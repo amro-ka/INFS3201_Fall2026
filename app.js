@@ -29,6 +29,31 @@ app.get('/services', async (req, res) => {
 })
 
 /**
+ * Form for finding a customer by customer ID.
+ */
+app.get('/customer', (req, res) => {
+    res.render('customer')
+})
+
+/**
+ * Show a customer and a summary of their orders, or a message if the customer is not found.
+ */
+app.get('/find-results', async (req, res) => {
+    let customerId = req.query.customer_id
+    if (typeof customerId !== 'string' || customerId.trim() === '') {
+        res.render('customer', { error: 'Please enter a customer ID.' })
+        return
+    }
+    customerId = customerId.trim()
+    let customer = await business.getCustomerInformation(customerId)
+    if (!customer) {
+        res.render('customer', { error: `Customer ${customerId} was not found.`, customerId: customerId })
+        return
+    }
+    res.render('customer-results', { customer: customer })
+})
+
+/**
  * Any URL that does not match a route.
  */
 app.use((req, res) => {

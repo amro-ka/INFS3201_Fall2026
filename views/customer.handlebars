@@ -1,0 +1,9 @@
+<h1>Find Customer</h1>
+{{#if error}}
+<p class="error">{{error}}</p>
+{{/if}}
+<form action="/find-results" method="GET">
+    <label for="customer_id">Customer ID</label>
+    <input type="text" id="customer_id" name="customer_id" value="{{customerId}}">
+    <button>Find</button>
+</form>
