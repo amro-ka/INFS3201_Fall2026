@@ -1,5 +1,16 @@
 import * as persistence from './persistence.js'
 
+// The order statuses in the only sequence an order is allowed to move through.
+const statusList = ['Received', 'Washing', 'Ready', 'Delivered']
+
+/**
+ * Get every possible order status in order.
+ * @returns A list of status names
+ */
+export function getStatusList() {
+    return statusList
+}
+
 
 /**
  * Get all services
@@ -97,7 +108,6 @@ export async function getAllOrders() {
  * @returns true if the operation is successful, false otherwise
  */
 export async function updateOrderStatus(oid, newStatus) {
-    let statusList = ['Received', 'Washing', 'Ready', 'Delivered']
     let order = await persistence.getOrderDetails(oid)
     if (!order) {
         return false

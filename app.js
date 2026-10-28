@@ -62,6 +62,46 @@ app.get('/orders', async (req, res) => {
 })
 
 /**
+ * Form for choosing a new status for one order.  The dropdown lists every status, even
+ * ones that would not be accepted, and the business layer decides if the change is valid.
+ */
+app.get('/update-status', async (req, res) => {
+    let orderId = req.query.order
+    let order = null
+    if (typeof orderId === 'string') {
+        order = await business.getOrderDetails(orderId)
+    }
+    if (!order) {
+        res.status(404).render('message', { title: 'Order Not Found', message: 'The requested order does not exist.' })
+        return
+    }
+    let statuses = []
+    for (let s of business.getStatusList()) {
+        statuses.push({ name: s, selected: s === order.status })
+    }
+    res.render('update-status', { order: order, statuses: statuses })
+})
+
+/**
+ * Apply the status change, then redirect back to the orders table (Post/Redirect/Get).
+ */
+app.post('/update-status', async (req, res) => {
+    let body = req.body || {}
+    let orderId = body.order
+    let newStatus = body.status
+    if (typeof orderId !== 'string' || typeof newStatus !== 'string') {
+        res.send('Invalid State')
+        return
+    }
+    let success = await business.updateOrderStatus(orderId, newStatus)
+    if (!success) {
+        res.send('Invalid State')
+        return
+    }
+    res.redirect('/orders')
+})
+
+/**
  * Any URL that does not match a route.
  */
 app.use((req, res) => {

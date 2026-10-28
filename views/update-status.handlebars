@@ -1,0 +1,12 @@
+<h1>Update Order {{order.orderId}}</h1>
+<p>Current status: {{order.status}}</p>
+<form action="/update-status" method="POST">
+    <input type="hidden" name="order" value="{{order.orderId}}">
+    <label for="status">New Status:</label>
+    <select id="status" name="status">
+        {{#each statuses}}
+        <option value="{{name}}" {{#if selected}}selected{{/if}}>{{name}}</option>
+        {{/each}}
+    </select>
+    <button>Change</button>
+</form>
