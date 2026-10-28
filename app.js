@@ -21,6 +21,14 @@ app.get('/', (req, res) => {
 })
 
 /**
+ * List all laundry services and their prices.
+ */
+app.get('/services', async (req, res) => {
+    let services = await business.getServices()
+    res.render('services', { services: services })
+})
+
+/**
  * Any URL that does not match a route.
  */
 app.use((req, res) => {
