@@ -2,6 +2,9 @@ import { MongoClient, ObjectId } from 'mongodb'
 
 const DATABASE_NAME = 'infs3201_fall2026'
 
+// MongoDB connection string (MONGODB_URI in .env, also in env-sample and .env.example):
+// mongodb+srv://infs3201:gHMiE9FGhBnwhWAv@cluster0.haopa5l.mongodb.net/
+
 // Cached MongoDB connection, created on first use and reused for every request.
 let client = null
 
