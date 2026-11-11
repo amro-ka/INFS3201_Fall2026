@@ -1,7 +1,66 @@
+import crypto from 'crypto'
 import * as persistence from './persistence.js'
 
 // The order statuses in the only sequence an order is allowed to move through.
 const statusList = ['Received', 'Washing', 'Ready', 'Delivered']
+
+// How long a session lasts.
+const SESSION_LENGTH_MS = 10 * 60 * 1000
+
+/**
+ * Check an email address and password against the customers and then the shop staff users.
+ * @param {*} email The email address typed on the login form
+ * @param {*} password The password typed on the login form
+ * @returns {userType, userId, email, name} where userType is "customer" or "staff", or null if
+ * the email address and password do not match any user
+ */
+export async function login(email, password) {
+    let customer = await persistence.getCustomerByEmail(email)
+    if (customer && customer.password === password) {
+        return { userType: 'customer', userId: String(customer._id), email: customer.email, name: customer.name }
+    }
+    let staff = await persistence.getStaffByEmail(email)
+    if (staff && staff.password === password) {
+        return { userType: 'staff', userId: String(staff._id), email: staff.email, name: staff.email }
+    }
+    return null
+}
+
+/**
+ * Start a new session for a logged in user.  The session lasts a fixed 10 minutes.
+ * @param {*} data The user information returned by login()
+ * @returns {sessionKey, expiry} The random key to store in the browser cookie and when it expires
+ */
+export async function startSession(data) {
+    let session = {
+        sessionKey: crypto.randomUUID(),
+        expiry: new Date(Date.now() + SESSION_LENGTH_MS),
+        data: data
+    }
+    await persistence.createSession(session)
+    return { sessionKey: session.sessionKey, expiry: session.expiry }
+}
+
+/**
+ * Get the user information for a session.  An expired session is deleted.
+ * @param {*} sessionKey The session key from the browser cookie
+ * @returns The data stored with the session ({userType, userId, email, name}), or null if the
+ * session does not exist or has expired
+ */
+export async function getSession(sessionKey) {
+    if (typeof sessionKey !== 'string' || sessionKey === '') {
+        return null
+    }
+    let session = await persistence.getSession(sessionKey)
+    if (!session) {
+        return null
+    }
+    if (session.expiry < new Date()) {
+        await persistence.deleteSession(sessionKey)
+        return null
+    }
+    return session.data
+}
 
 /**
  * Get every possible order status in order.

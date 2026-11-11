@@ -1,5 +1,6 @@
 import express from 'express'
 import { engine } from 'express-handlebars'
+import cookieParser from 'cookie-parser'
 import dotenv from 'dotenv'
 import * as business from './business.js'
 
@@ -12,12 +13,69 @@ app.set('views', './views')
 
 app.use(express.static('public'))
 app.use(express.urlencoded({ extended: false }))
+app.use(cookieParser())
+
+/**
+ * Session middleware.  Looks up the session key from the "session" cookie and stores the
+ * logged in user's information in req.session (null when nobody is logged in).  The same
+ * information is put in res.locals so the layout can show the right navigation menu.
+ */
+app.use(async (req, res, next) => {
+    let sessionKey = req.cookies.session
+    req.session = await business.getSession(sessionKey)
+    if (!req.session && sessionKey) {
+        res.clearCookie('session')
+    }
+    res.locals.user = req.session
+    next()
+})
 
 /**
  * Landing page showing only the navigation menu from the layout.
  */
 app.get('/', (req, res) => {
     res.render('home')
+})
+
+/**
+ * Login form asking for an email address and password.
+ */
+app.get('/login', (req, res) => {
+    res.render('login')
+})
+
+/**
+ * Check the email address and password against the customers and staff users.  A valid user
+ * gets a new session (stored in MongoDB, key stored in a cookie) and is redirected.
+ */
+app.post('/login', async (req, res) => {
+    let body = req.body || {}
+    let email = body.email
+    let password = body.password
+    if (typeof email !== 'string' || typeof password !== 'string' || email.trim() === '' || password === '') {
+        res.render('login', { error: 'Please enter your email address and password.', email: email })
+        return
+    }
+    email = email.trim()
+    let user = await business.login(email, password)
+    if (!user) {
+        res.render('login', { error: 'Invalid email address or password.', email: email })
+        return
+    }
+    let session = await business.startSession(user)
+    res.cookie('session', session.sessionKey, { expires: session.expiry, httpOnly: true })
+    res.redirect('/welcome')
+})
+
+/**
+ * Temporary page shown after logging in that displays the type of user.
+ */
+app.get('/welcome', (req, res) => {
+    if (!req.session) {
+        res.redirect('/login')
+        return
+    }
+    res.render('welcome', { userType: req.session.userType })
 })
 
 /**

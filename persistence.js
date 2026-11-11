@@ -82,6 +82,54 @@ export async function getCustomerByPhone(phone) {
 }
 
 /**
+ * Find a single customer using their email address.
+ * @param {*} email The email address
+ * @returns The customer object or null if no customer has that email address
+ */
+export async function getCustomerByEmail(email) {
+    let db = await getDatabase()
+    return await db.collection('customers').findOne({ email: email })
+}
+
+/**
+ * Find a single shop staff user using their email address.
+ * @param {*} email The email address
+ * @returns The staff user object ({_id, email, password}) or null if there is no such staff user
+ */
+export async function getStaffByEmail(email) {
+    let db = await getDatabase()
+    return await db.collection('staff_users').findOne({ email: email })
+}
+
+/**
+ * Store a new session.
+ * @param {*} session The session object ({sessionKey, expiry, data})
+ */
+export async function createSession(session) {
+    let db = await getDatabase()
+    await db.collection('sessions').insertOne(session)
+}
+
+/**
+ * Get a session using its session key.
+ * @param {*} sessionKey The random key stored in the browser cookie
+ * @returns The session object or null if there is no session with that key
+ */
+export async function getSession(sessionKey) {
+    let db = await getDatabase()
+    return await db.collection('sessions').findOne({ sessionKey: sessionKey })
+}
+
+/**
+ * Delete a session, for example when the user logs out or the session has expired.
+ * @param {*} sessionKey The session key
+ */
+export async function deleteSession(sessionKey) {
+    let db = await getDatabase()
+    await db.collection('sessions').deleteOne({ sessionKey: sessionKey })
+}
+
+/**
  * Get information about several customers at once.
  * @param {*} cidList A list of customer _id values
  * @returns A list of customer objects for the ids that exist
