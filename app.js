@@ -36,18 +36,19 @@ app.get('/customer', (req, res) => {
 })
 
 /**
- * Show a customer and a summary of their orders, or a message if the customer is not found.
+ * Show a customer found by phone number and a summary of their orders, or a message if
+ * no customer has that phone number.
  */
 app.get('/find-results', async (req, res) => {
-    let customerId = req.query.customer_id
-    if (typeof customerId !== 'string' || customerId.trim() === '') {
-        res.render('customer', { error: 'Please enter a customer ID.' })
+    let phone = req.query.phone
+    if (typeof phone !== 'string' || phone.trim() === '') {
+        res.render('customer', { error: 'Please enter a phone number.' })
         return
     }
-    customerId = customerId.trim()
-    let customer = await business.getCustomerInformation(customerId)
+    phone = phone.trim()
+    let customer = await business.getCustomerByPhone(phone)
     if (!customer) {
-        res.render('customer', { error: `Customer ${customerId} was not found.`, customerId: customerId })
+        res.render('customer', { error: `No customer has the phone number ${phone}.`, phone: phone })
         return
     }
     res.render('customer-results', { customer: customer })

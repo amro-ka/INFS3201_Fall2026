@@ -34,7 +34,29 @@ export async function getCustomerInformation(cid) {
     if (!customer) {
         return null
     }
-    let orders = await persistence.getCustomerOrders(cid)
+    return await addOrderSummaries(customer)
+}
+
+/**
+ * Find a customer by phone number along with a summary of each of their orders.
+ * @param {*} phone The customer's phone number
+ * @returns The customer object with an orders list, or null if no customer has that phone number
+ */
+export async function getCustomerByPhone(phone) {
+    let customer = await persistence.getCustomerByPhone(phone)
+    if (!customer) {
+        return null
+    }
+    return await addOrderSummaries(customer)
+}
+
+/**
+ * Attach a summary (order, date, status, total) of each of the customer's orders.
+ * @param {*} customer The customer object read from the database
+ * @returns The same customer object with an orders list added
+ */
+async function addOrderSummaries(customer) {
+    let orders = await persistence.getCustomerOrders(customer.customerId)
     let summaries = []
     for (let ord of orders) {
         summaries.push({

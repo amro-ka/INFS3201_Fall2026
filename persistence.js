@@ -48,6 +48,16 @@ export async function getCustomerInformation(cid) {
 }
 
 /**
+ * Find a single customer using their phone number.
+ * @param {*} phone The phone number exactly as stored, for example "5512-4837"
+ * @returns A JavaScript object representing the customer or null if no customer has that phone number
+ */
+export async function getCustomerByPhone(phone) {
+    let db = await getDatabase()
+    return await db.collection('customers').findOne({ phone: phone })
+}
+
+/**
  * Get information about several customers at once.
  * @param {*} cidList A list of customer IDs
  * @returns A list of customer objects for the IDs that exist
