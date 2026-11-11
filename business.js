@@ -4,7 +4,7 @@ import * as persistence from './persistence.js'
 // The order statuses in the only sequence an order is allowed to move through.
 const statusList = ['Received', 'Washing', 'Ready', 'Delivered']
 
-// How long a session lasts.
+// How long a session lasts after the user's most recent request (sliding window).
 const SESSION_LENGTH_MS = 10 * 60 * 1000
 
 /**
@@ -27,7 +27,8 @@ export async function login(email, password) {
 }
 
 /**
- * Start a new session for a logged in user.  The session lasts a fixed 10 minutes.
+ * Start a new session for a logged in user.  The session lasts 10 minutes and is extended
+ * every time it is used (see getSession).
  * @param {*} data The user information returned by login()
  * @returns {sessionKey, expiry} The random key to store in the browser cookie and when it expires
  */
@@ -42,9 +43,11 @@ export async function startSession(data) {
 }
 
 /**
- * Get the user information for a session.  An expired session is deleted.
+ * Get the user information for a session and slide its expiry to 10 minutes from now.
+ * An expired session is deleted.
  * @param {*} sessionKey The session key from the browser cookie
- * @returns The data stored with the session ({userType, userId, email, name}), or null if the
+ * @returns {data, expiry} where data is the user information stored with the session
+ * ({userType, userId, email, name}) and expiry is the new expiry Date, or null if the
  * session does not exist or has expired
  */
 export async function getSession(sessionKey) {
@@ -59,7 +62,9 @@ export async function getSession(sessionKey) {
         await persistence.deleteSession(sessionKey)
         return null
     }
-    return session.data
+    let expiry = new Date(Date.now() + SESSION_LENGTH_MS)
+    await persistence.updateSessionExpiry(sessionKey, expiry)
+    return { data: session.data, expiry: expiry }
 }
 
 /**

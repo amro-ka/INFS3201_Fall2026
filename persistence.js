@@ -121,6 +121,16 @@ export async function getSession(sessionKey) {
 }
 
 /**
+ * Change when a session expires.
+ * @param {*} sessionKey The session key
+ * @param {*} expiry The new expiry Date
+ */
+export async function updateSessionExpiry(sessionKey, expiry) {
+    let db = await getDatabase()
+    await db.collection('sessions').updateOne({ sessionKey: sessionKey }, { $set: { expiry: expiry } })
+}
+
+/**
  * Delete a session, for example when the user logs out or the session has expired.
  * @param {*} sessionKey The session key
  */

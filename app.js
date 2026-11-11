@@ -17,13 +17,20 @@ app.use(cookieParser())
 
 /**
  * Session middleware.  Looks up the session key from the "session" cookie and stores the
- * logged in user's information in req.session (null when nobody is logged in).  The same
- * information is put in res.locals so the layout can show the right navigation menu.
+ * logged in user's information in req.session (null when nobody is logged in).  Each request
+ * slides the session's expiry 10 minutes forward, so the cookie is sent again with the new
+ * expiry.  The user information is also put in res.locals so the layout can show the right
+ * navigation menu.
  */
 app.use(async (req, res, next) => {
     let sessionKey = req.cookies.session
-    req.session = await business.getSession(sessionKey)
-    if (!req.session && sessionKey) {
+    let session = await business.getSession(sessionKey)
+    req.session = null
+    if (session) {
+        req.session = session.data
+        res.cookie('session', sessionKey, { expires: session.expiry, httpOnly: true })
+    }
+    else if (sessionKey) {
         res.clearCookie('session')
     }
     res.locals.user = req.session

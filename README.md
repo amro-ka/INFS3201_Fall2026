@@ -65,5 +65,27 @@ The script dropped the unique indexes on the removed fields. The remaining index
 
 | Collection  | Index field  | Used by |
 |-------------|--------------|---------|
-| `orders`    | `customerId` | All orders for one customer | Missing or invalid customer and order IDs
+| `orders`    | `customerId` | All orders for one customer |
+
+## Parts 3 to 6: Logins and sessions
+- Customers have a plain text `password` field and shop staff are in the `staff_users` collection
+  (email and password only). All logins are listed in `users.md`.
+- `/login` checks the customers and then the staff users. Sessions are stored in the `sessions`
+  collection (`sessionKey`, `expiry`, `data`) and the key is kept in an http-only `session` cookie.
+  express-session is not used; `cookie-parser` only reads the cookie.
+- Sessions use a 10 minute sliding window: every request moves the expiry 10 minutes forward.
+- Customers go to `/customer-dashboard` (their own orders). Their menu is Dashboard, Services, Logout.
+- Staff go to `/staff-dashboard` (all orders, Update Status). Their menu is Services, Dashboard,
+  Search Customers, Logout. `/staff-dashboard`, `/customer`, `/find-results` and `/update-status`
+  redirect anyone who is not logged in as staff to `/login`.
+
+| Page | URL | Who |
+|------|-----|-----|
+| Landing page | `/` | everyone |
+| Services | `/services` | everyone |
+| Login / Logout | `/login`, `/logout` | everyone |
+| Customer dashboard | `/customer-dashboard` | customers |
+| Staff dashboard | `/staff-dashboard` | staff |
+| Search customers by phone | `/customer`, `/find-results?phone=5512-4837` | staff |
+| Update order status (PRG back to the staff dashboard) | `/update-status?order=<order _id>` | staff | Missing or invalid customer and order IDs
 display a message instead of crashing the application.
