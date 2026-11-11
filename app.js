@@ -28,6 +28,7 @@ app.use(async (req, res, next) => {
     }
     res.locals.user = req.session
     res.locals.isCustomer = req.session !== null && req.session.userType === 'customer'
+    res.locals.isStaff = req.session !== null && req.session.userType === 'staff'
     next()
 })
 
@@ -36,6 +37,18 @@ app.use(async (req, res, next) => {
  */
 function requireCustomer(req, res, next) {
     if (!req.session || req.session.userType !== 'customer') {
+        res.redirect('/login')
+        return
+    }
+    next()
+}
+
+/**
+ * Middleware for routes only logged in shop staff may visit.  Customers and visitors who are
+ * not logged in are sent to the login page.
+ */
+function requireStaff(req, res, next) {
+    if (!req.session || req.session.userType !== 'staff') {
         res.redirect('/login')
         return
     }
@@ -80,7 +93,7 @@ app.post('/login', async (req, res) => {
         res.redirect('/customer-dashboard')
     }
     else {
-        res.redirect('/welcome')
+        res.redirect('/staff-dashboard')
     }
 })
 
@@ -106,17 +119,6 @@ app.get('/customer-dashboard', requireCustomer, async (req, res) => {
 })
 
 /**
- * Temporary page shown after logging in that displays the type of user.
- */
-app.get('/welcome', (req, res) => {
-    if (!req.session) {
-        res.redirect('/login')
-        return
-    }
-    res.render('welcome', { userType: req.session.userType })
-})
-
-/**
  * List all laundry services and their prices.
  */
 app.get('/services', async (req, res) => {
@@ -125,17 +127,17 @@ app.get('/services', async (req, res) => {
 })
 
 /**
- * Form for finding a customer by customer ID.
+ * Form for finding a customer by phone number (staff only).
  */
-app.get('/customer', (req, res) => {
+app.get('/customer', requireStaff, (req, res) => {
     res.render('customer')
 })
 
 /**
  * Show a customer found by phone number and a summary of their orders, or a message if
- * no customer has that phone number.
+ * no customer has that phone number (staff only).
  */
-app.get('/find-results', async (req, res) => {
+app.get('/find-results', requireStaff, async (req, res) => {
     let phone = req.query.phone
     if (typeof phone !== 'string' || phone.trim() === '') {
         res.render('customer', { error: 'Please enter a phone number.' })
@@ -151,18 +153,18 @@ app.get('/find-results', async (req, res) => {
 })
 
 /**
- * Table of all orders with a link to update each order's status.
+ * Staff dashboard: table of all orders with a link to update each order's status.
  */
-app.get('/orders', async (req, res) => {
+app.get('/staff-dashboard', requireStaff, async (req, res) => {
     let orders = await business.getAllOrders()
-    res.render('orders', { orders: orders })
+    res.render('staff-dashboard', { orders: orders })
 })
 
 /**
- * Form for choosing a new status for one order.  The dropdown lists every status, even
- * ones that would not be accepted, and the business layer decides if the change is valid.
+ * Form for choosing a new status for one order (staff only).  The dropdown lists every status,
+ * even ones that would not be accepted, and the business layer decides if the change is valid.
  */
-app.get('/update-status', async (req, res) => {
+app.get('/update-status', requireStaff, async (req, res) => {
     let orderId = req.query.order
     let order = null
     if (typeof orderId === 'string') {
@@ -180,9 +182,10 @@ app.get('/update-status', async (req, res) => {
 })
 
 /**
- * Apply the status change, then redirect back to the orders table (Post/Redirect/Get).
+ * Apply the status change, then redirect back to the staff dashboard (Post/Redirect/Get).
+ * Staff only.
  */
-app.post('/update-status', async (req, res) => {
+app.post('/update-status', requireStaff, async (req, res) => {
     let body = req.body || {}
     let orderId = body.order
     let newStatus = body.status
@@ -195,7 +198,7 @@ app.post('/update-status', async (req, res) => {
         res.send('Invalid State')
         return
     }
-    res.redirect('/orders')
+    res.redirect('/staff-dashboard')
 })
 
 /**
