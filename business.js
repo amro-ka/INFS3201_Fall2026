@@ -56,11 +56,11 @@ export async function getCustomerByPhone(phone) {
  * @returns The same customer object with an orders list added
  */
 async function addOrderSummaries(customer) {
-    let orders = await persistence.getCustomerOrders(customer.customerId)
+    let orders = await persistence.getCustomerOrders(customer._id)
     let summaries = []
     for (let ord of orders) {
         summaries.push({
-            order: ord.orderId,
+            order: String(ord._id),
             date: ord.orderDate,
             status: ord.status,
             total: await computeItemsTotal(ord.items)
@@ -86,33 +86,44 @@ async function computeItemsTotal(items) {
     return total
 }
 
+/**
+ * Get a single order.
+ * @param {*} oid The order's _id as a string
+ * @returns The order object with its _id converted to a string, or null if it does not exist
+ */
 export async function getOrderDetails(oid) {
-    return await persistence.getOrderDetails(oid)
+    let order = await persistence.getOrderDetails(oid)
+    if (!order) {
+        return null
+    }
+    order._id = String(order._id)
+    return order
 }
 
 /**
  * Get every order in the system along with the name of the customer who placed it.
- * @returns A list of {orderId, customer, orderDate, status} objects
+ * @returns A list of {orderId, customer, orderDate, status} objects where orderId is the
+ * order's _id as a string
  */
 export async function getAllOrders() {
     let orders = await persistence.getAllOrders()
     let customerIds = []
     for (let ord of orders) {
-        if (!customerIds.includes(ord.customerId)) {
+        if (ord.customerId && !customerIds.some(id => String(id) === String(ord.customerId))) {
             customerIds.push(ord.customerId)
         }
     }
     let customers = await persistence.getCustomersByIds(customerIds)
     let names = {}
     for (let c of customers) {
-        names[c.customerId] = c.name
+        names[String(c._id)] = c.name
     }
 
     let result = []
     for (let ord of orders) {
         result.push({
-            orderId: ord.orderId,
-            customer: names[ord.customerId] || 'Unknown customer',
+            orderId: String(ord._id),
+            customer: names[String(ord.customerId)] || 'Unknown customer',
             orderDate: ord.orderDate,
             status: ord.status
         })
@@ -231,7 +242,7 @@ export async function generateInvoice(orderId) {
     }
     let totals = computeSubTotals(serviceItems)
     return {
-        order: orderDetails.orderId,
+        order: String(orderDetails._id),
         date: orderDetails.orderDate,
         status: orderDetails.status,
         customer: customerDetails.name,

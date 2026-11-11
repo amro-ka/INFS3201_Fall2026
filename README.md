@@ -50,5 +50,20 @@ Run with `npm install` then `node app.js` and open http://127.0.0.1:8000
 | All orders | `/orders` |
 | Update order status (POST then redirect to `/orders`) | `/update-status?order=O001` |
 
-There is no client-side JavaScript and no inline styling. Missing or invalid customer and order IDs
+There is no client-side JavaScript and no inline styling.
+
+# Assignment 4
+
+## Part 1: Find Customer by phone
+The Find Customer form searches by phone number (`/find-results?phone=5512-4837`).
+
+## Part 2: MongoDB identifiers
+`db_transform.js` was run once against the database (see `db_conversion.md`). The application ids
+`customerId`, `serviceId` and `orderId` no longer exist on customers, services and orders; every
+record is identified by its MongoDB `_id`, and orders refer to their customer and services by `_id`.
+The script dropped the unique indexes on the removed fields. The remaining indexes are:
+
+| Collection  | Index field  | Used by |
+|-------------|--------------|---------|
+| `orders`    | `customerId` | All orders for one customer | Missing or invalid customer and order IDs
 display a message instead of crashing the application.
