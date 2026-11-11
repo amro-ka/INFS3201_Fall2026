@@ -1,0 +1,21 @@
+<h1>Your Orders</h1>
+{{#if orders.length}}
+<table>
+    <tr>
+        <th>Order ID</th>
+        <th>Date</th>
+        <th>Status</th>
+        <th>Total QAR</th>
+    </tr>
+    {{#each orders}}
+    <tr>
+        <td>{{order}}</td>
+        <td>{{date}}</td>
+        <td class="status-{{status}}">{{status}}</td>
+        <td>{{total}}</td>
+    </tr>
+    {{/each}}
+</table>
+{{else}}
+<p>You have no orders.</p>
+{{/if}}

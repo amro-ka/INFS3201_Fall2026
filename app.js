@@ -27,8 +27,20 @@ app.use(async (req, res, next) => {
         res.clearCookie('session')
     }
     res.locals.user = req.session
+    res.locals.isCustomer = req.session !== null && req.session.userType === 'customer'
     next()
 })
+
+/**
+ * Middleware for routes only logged in customers may visit.
+ */
+function requireCustomer(req, res, next) {
+    if (!req.session || req.session.userType !== 'customer') {
+        res.redirect('/login')
+        return
+    }
+    next()
+}
 
 /**
  * Landing page showing only the navigation menu from the layout.
@@ -64,7 +76,33 @@ app.post('/login', async (req, res) => {
     }
     let session = await business.startSession(user)
     res.cookie('session', session.sessionKey, { expires: session.expiry, httpOnly: true })
-    res.redirect('/welcome')
+    if (user.userType === 'customer') {
+        res.redirect('/customer-dashboard')
+    }
+    else {
+        res.redirect('/welcome')
+    }
+})
+
+/**
+ * Log the user out by deleting their session and its cookie.
+ */
+app.get('/logout', async (req, res) => {
+    await business.endSession(req.cookies.session)
+    res.clearCookie('session')
+    res.redirect('/login')
+})
+
+/**
+ * Dashboard for a logged in customer showing only their own orders.
+ */
+app.get('/customer-dashboard', requireCustomer, async (req, res) => {
+    let customer = await business.getCustomerInformation(req.session.userId)
+    if (!customer) {
+        res.status(404).render('message', { title: 'Customer Not Found', message: 'Your customer account no longer exists.' })
+        return
+    }
+    res.render('customer-dashboard', { orders: customer.orders })
 })
 
 /**

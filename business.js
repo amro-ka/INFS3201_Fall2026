@@ -63,6 +63,17 @@ export async function getSession(sessionKey) {
 }
 
 /**
+ * End a session when the user logs out.
+ * @param {*} sessionKey The session key from the browser cookie
+ */
+export async function endSession(sessionKey) {
+    if (typeof sessionKey !== 'string' || sessionKey === '') {
+        return
+    }
+    await persistence.deleteSession(sessionKey)
+}
+
+/**
  * Get every possible order status in order.
  * @returns A list of status names
  */
